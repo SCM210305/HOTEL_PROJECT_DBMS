@@ -8,6 +8,8 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 class ImagePanel extends JPanel {
     private final Image img;
@@ -35,7 +37,7 @@ public class HotelManagementProject extends JFrame {
     private Connection conn;
     private final String userRole;
     private JTabbedPane tabbedPane;
-    private JPanel reservationPanel, viewPanel, paymentPanel;
+    private JPanel reservationPanel, viewPanel, paymentPanel, billingPanel; // Added billingPanel
     private JTextField customerIdField, fNameField, mInitField, lNameField, proofField, genderField, emailField;
     private JTextField guestCountField, chkInField, chkOutField, roomPrefTypeField;
     private JButton submitReservationButton;
@@ -47,6 +49,11 @@ public class HotelManagementProject extends JFrame {
     private JComboBox<String> paymentMethodComboBox, paymentStatusComboBox;
     private JButton submitPaymentButton, logoutButton;
     private static Image bgImg;
+    
+    // Billing Panel Components
+    private JTextField billingResIdField;
+    private JButton generateBillButton;
+    private JTextArea billDisplayArea;
 
     public HotelManagementProject(String userRole, Image img) {
         super("Hotel Reservation System (" + userRole + ")");
@@ -81,9 +88,11 @@ public class HotelManagementProject extends JFrame {
         tabbedPane.addTab("Make Reservation", reservationPanel);
         tabbedPane.addTab("View Data", viewPanel);
 
-        if ("ADMIN".equals(userRole)) {
+        if ("ADMIN".equals(userRole) || "EMPLOYEE".equals(userRole)) { // Added for EMPLOYEES too
             createPaymentPanel();
             tabbedPane.addTab("Record Payment", paymentPanel);
+            createBillingPanel(); // New billing panel
+            tabbedPane.addTab("Generate Bill", billingPanel); // New billing tab
         }
 
         logoutButton = new JButton("Logout");
@@ -295,6 +304,43 @@ public class HotelManagementProject extends JFrame {
         paymentPanel.add(formPanel, BorderLayout.CENTER);
         paymentPanel.add(southPanel, BorderLayout.SOUTH);
     }
+    
+    // --- New Billing Panel Method ---
+    private void createBillingPanel() {
+        billingPanel = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            public boolean isOpaque() { return false; }
+        };
+        billingPanel.setBorder(new EmptyBorder(25, 25, 25, 25));
+        JPanel inputPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10)) {
+            @Override
+            public boolean isOpaque() { return false; }
+        };
+        
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 16);
+        Font fieldFont = new Font("Segoe UI", Font.PLAIN, 16);
+
+        inputPanel.add(new JLabel("Reservation ID:"));
+        billingResIdField = new JTextField(15);
+        billingResIdField.setFont(fieldFont);
+        inputPanel.add(billingResIdField);
+
+        generateBillButton = new JButton("Generate Bill");
+        generateBillButton.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        generateBillButton.setBackground(new Color(255, 193, 7));
+        generateBillButton.setForeground(Color.BLACK);
+        generateBillButton.addActionListener(e -> generateBill());
+        inputPanel.add(generateBillButton);
+
+        billDisplayArea = new JTextArea(15, 40);
+        billDisplayArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 16));
+        billDisplayArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(billDisplayArea);
+
+        billingPanel.add(inputPanel, BorderLayout.NORTH);
+        billingPanel.add(scrollPane, BorderLayout.CENTER);
+    }
+    // --- End of New Method ---
 
     private void submitReservation() {
         if (conn == null) {
@@ -428,6 +474,84 @@ public class HotelManagementProject extends JFrame {
             ex.printStackTrace();
         }
     }
+    
+    // --- New Generate Bill Method ---
+    private void generateBill() {
+        String resId = billingResIdField.getText().trim();
+        if (resId.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter a Reservation ID.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try {
+            // SQL to get reservation and customer details
+            String sql = "SELECT c.F_NAME, c.L_NAME, r.CHK_IN, r.CHK_OUT, r.ROOM_PREF_TYPE " +
+                         "FROM RESERVATION r " +
+                         "JOIN CUSTOMER c ON r.CUSTOMER_ID = c.CUSTOMER_ID " +
+                         "WHERE r.RESER_ID = ?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, resId);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                String fName = rs.getString("F_NAME");
+                String lName = rs.getString("L_NAME");
+                LocalDate checkIn = rs.getDate("CHK_IN").toLocalDate();
+                LocalDate checkOut = rs.getDate("CHK_OUT").toLocalDate();
+                String roomType = rs.getString("ROOM_PREF_TYPE");
+                
+                // Calculate number of nights
+                long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
+                
+                // Get room price from ROOMS table
+                String priceSql = "SELECT ROOM_PRICE FROM ROOMS WHERE ROOM_TYPE = ?";
+                PreparedStatement pricePstmt = conn.prepareStatement(priceSql);
+                pricePstmt.setString(1, roomType);
+                ResultSet priceRs = pricePstmt.executeQuery();
+                
+                double roomPrice = 0.0;
+                if (priceRs.next()) {
+                    roomPrice = priceRs.getDouble("ROOM_PRICE");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Room type price not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                double totalAmount = nights * roomPrice;
+                
+                // Construct the bill text
+                String bill = String.format(
+                    "=========================================\n" +
+                    "           HOTEL RESERVATION BILL\n" +
+                    "=========================================\n" +
+                    "Reservation ID: %s\n" +
+                    "Customer Name:  %s %s\n" +
+                    "-----------------------------------------\n" +
+                    "Check-in Date:  %s\n" +
+                    "Check-out Date: %s\n" +
+                    "Nights Stayed:  %d\n" +
+                    "-----------------------------------------\n" +
+                    "Room Type:      %s\n" +
+                    "Room Rate/Night: $%.2f\n" +
+                    "-----------------------------------------\n" +
+                    "Total Amount:   $%.2f\n" +
+                    "=========================================\n",
+                    resId, fName, lName, checkIn, checkOut, nights, roomType, roomPrice, totalAmount
+                );
+                
+                billDisplayArea.setText(bill);
+            } else {
+                JOptionPane.showMessageDialog(this, "Reservation ID not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                billDisplayArea.setText("");
+            }
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "An error occurred while generating the bill: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+            billDisplayArea.setText("");
+        }
+    }
+    // --- End of New Method ---
 
     private void loadTableData(String tableName) {
         if (conn == null) {
@@ -604,7 +728,7 @@ public class HotelManagementProject extends JFrame {
 
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel("com.formdev.flatlaf.FlatLightLaf"); } catch (Exception ignored) {}
-        bgImg = Toolkit.getDefaultToolkit().getImage("F:/HOTEL_PROJECT_DBMS/V3/HOTEL_PROJECT/src/image.jpg");
+        bgImg = Toolkit.getDefaultToolkit().getImage("D:/HOTEL_PROJECT_DBMS/V4/HOTEL_PROJECT/src/image.jpg");
         LoginFrame.showLoginScreen(bgImg);
     }
 }
