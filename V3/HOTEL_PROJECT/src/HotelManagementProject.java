@@ -604,7 +604,7 @@ public class HotelManagementProject extends JFrame {
 
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel("com.formdev.flatlaf.FlatLightLaf"); } catch (Exception ignored) {}
-        bgImg = Toolkit.getDefaultToolkit().getImage("F:\\HOTEL_PROJECT\\V3\\HOTEL_PROJECT\\src\\image.jpg");
+        bgImg = Toolkit.getDefaultToolkit().getImage("F:/HOTEL_PROJECT/V3/HOTEL_PROJECT/src/image.jpg");
         LoginFrame.showLoginScreen(bgImg);
     }
 }
