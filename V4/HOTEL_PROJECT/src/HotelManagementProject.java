@@ -504,14 +504,14 @@ public class HotelManagementProject extends JFrame {
                 long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
                 
                 // Get room price from ROOMS table
-                String priceSql = "SELECT ROOM_PRICE FROM ROOMS WHERE ROOM_TYPE = ?";
+                String priceSql = "SELECT PRICE FROM ROOMS WHERE ROOM_TYPE = ?";
                 PreparedStatement pricePstmt = conn.prepareStatement(priceSql);
                 pricePstmt.setString(1, roomType);
                 ResultSet priceRs = pricePstmt.executeQuery();
                 
                 double roomPrice = 0.0;
                 if (priceRs.next()) {
-                    roomPrice = priceRs.getDouble("ROOM_PRICE");
+                    roomPrice = priceRs.getDouble("PRICE");
                 } else {
                     JOptionPane.showMessageDialog(this, "Room type price not found.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
