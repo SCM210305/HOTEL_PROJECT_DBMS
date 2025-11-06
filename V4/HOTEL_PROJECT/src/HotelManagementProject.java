@@ -1,15 +1,14 @@
+import java.awt.*;
+import java.sql.*;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
-import java.awt.*;
-import java.awt.event.*;
-import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 
 class ImagePanel extends JPanel {
     private final Image img;
@@ -728,7 +727,7 @@ public class HotelManagementProject extends JFrame {
 
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel("com.formdev.flatlaf.FlatLightLaf"); } catch (Exception ignored) {}
-        bgImg = Toolkit.getDefaultToolkit().getImage("D:/HOTEL_PROJECT_DBMS/V4/HOTEL_PROJECT/src/image.jpg");
+        bgImg = Toolkit.getDefaultToolkit().getImage("D:\\HOTEL_PROJECT_DBMS\\V4\\HOTEL_PROJECT\\image\\image.jpg");
         LoginFrame.showLoginScreen(bgImg);
     }
 }
