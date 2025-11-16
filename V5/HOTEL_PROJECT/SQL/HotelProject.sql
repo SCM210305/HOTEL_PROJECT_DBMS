@@ -1,0 +1,199 @@
+DROP database hotel_db;
+Create database hotel_db;
+use hotel_db;
+create table CUSTOMER(
+CUSTOMER_ID VARCHAR(20) PRIMARY KEY,
+F_NAME VARCHAR(20) NOT NULL,
+M_INIT CHAR(20),
+L_NAME VARCHAR(20)NOT NULL,
+PROOF VARCHAR(20) UNIQUE NOT NULL,
+GENDER CHAR(1),
+EMAIL VARCHAR(20) UNIQUE);
+
+CREATE TABLE HOTEL (
+    HOTEL_ID VARCHAR(20) PRIMARY KEY,
+    HOTEL_NAME VARCHAR(20) NOT NULL,
+    STATE VARCHAR(20) NOT NULL,
+    DISTRICT VARCHAR(20) NOT NULL,
+    CITY VARCHAR(20)NOT NULL,
+    STREET VARCHAR(20)
+);
+
+CREATE TABLE ROOMS (
+    ROOM_NO VARCHAR(20) PRIMARY KEY,
+    ROOM_TYPE VARCHAR(20),
+    STATUS VARCHAR(20) NOT NULL,
+    PRICE DECIMAL(10, 2),
+    HOTEL_ID VARCHAR(255),
+    FOREIGN KEY (HOTEL_ID) REFERENCES HOTEL(HOTEL_ID) ON DELETE SET NULL 
+);
+
+CREATE TABLE RESERVATION (
+    RESER_ID VARCHAR(20) PRIMARY KEY,
+    GUEST_COUNT INT,
+    CHK_IN DATE,
+    CHK_OUT DATE,
+    ROOM_PREF_TYPE VARCHAR(255),
+    CUSTOMER_ID VARCHAR(255),
+    PROOF VARCHAR(255),
+    EMAIL VARCHAR(255),
+    FOREIGN KEY (CUSTOMER_ID) REFERENCES CUSTOMER(CUSTOMER_ID) ON DELETE CASCADE
+);
+
+CREATE TABLE CONFIRMATION (
+    CONF_ID VARCHAR(20) PRIMARY KEY,
+    CONF_MODE VARCHAR(20),
+    CONF_DATE DATE,
+    STATUS VARCHAR(20),
+    RESER_ID VARCHAR(20),
+    FOREIGN KEY (RESER_ID) REFERENCES RESERVATION(RESER_ID) on delete cascade
+);
+
+CREATE TABLE IF NOT EXISTS PAYMENT (
+    PAYMENT_ID VARCHAR(255) PRIMARY KEY,
+    PAY_REF VARCHAR(255),
+    AMOUNT DECIMAL(10, 2),
+    PAY_METHOD VARCHAR(255),
+    PAY_STATUS VARCHAR(255),
+    RESER_ID VARCHAR(255),
+    FOREIGN KEY (RESER_ID) REFERENCES RESERVATION(RESER_ID) ON DELETE CASCADE
+);
+
+CREATE TABLE BOOKED_VIA (
+    ROOM_NO VARCHAR(255),
+    RESER_ID VARCHAR(255),
+    MODE VARCHAR(255),
+    PRIMARY KEY (ROOM_NO, RESER_ID),
+    FOREIGN KEY (ROOM_NO) REFERENCES ROOMS(ROOM_NO) ON DELETE CASCADE,
+    FOREIGN KEY (RESER_ID) REFERENCES RESERVATION(RESER_ID) ON DELETE CASCADE
+);
+
+
+INSERT INTO HOTEL (HOTEL_ID, HOTEL_NAME, STATE, DISTRICT, CITY, STREET) VALUES
+('H101', 'Grand Hyatt', 'New York', 'New York', 'New York City', '109 E 42nd St'),
+('H102', 'The Ritz-Carlton', 'California', 'Los Angeles', 'Los Angeles', '900 W Olympic Blvd'),
+('H103', 'Hilton Garden Inn', 'Texas', 'Harris', 'Houston', '800 Chartres St'),
+('H104', 'Four Seasons Hotel', 'Illinois', 'Cook', 'Chicago', '120 E Delaware Pl'),
+('H105', 'Bellagio Hotel ', 'Nevada', 'Clark', 'Las Vegas', '3600 S Las-vegas');
+INSERT INTO ROOMS (ROOM_NO, ROOM_TYPE, STATUS, PRICE, HOTEL_ID) VALUES
+-- Grand Hyatt (H101)
+('101', 'Standard', 'Available', 150.00, 'H101'),
+('102', 'Standard', 'Booked', 150.00, 'H101'),
+('103', 'Deluxe', 'Available', 250.00, 'H101'),
+('104', 'Suite', 'Available', 450.00, 'H101'),
+-- The Ritz-Carlton (H102)
+('201', 'Standard', 'Available', 180.00, 'H102'),
+('202', 'Deluxe', 'Booked', 280.00, 'H102'),
+('203', 'Deluxe', 'Available', 280.00, 'H102'),
+('204', 'Suite', 'Maintenance', 500.00, 'H102'),
+-- Hilton Garden Inn (H103)
+('301', 'Standard', 'Available', 120.00, 'H103'),
+('302', 'Standard', 'Booked', 120.00, 'H103'),
+('303', 'Deluxe', 'Available', 200.00, 'H103'),
+('304', 'Suite', 'Available', 350.00, 'H103'),
+-- Four Seasons Hotel (H104)
+('401', 'Standard', 'Available', 200.00, 'H104'),
+('402', 'Deluxe', 'Booked', 300.00, 'H104'),
+('403', 'Suite', 'Available', 600.00, 'H104'),
+('404', 'Suite', 'Booked', 600.00, 'H104'),
+-- Bellagio Hotel & Casino (H105)
+('501', 'Standard', 'Available', 190.00, 'H105'),
+('502', 'Deluxe', 'Maintenance', 320.00, 'H105'),
+('503', 'Suite', 'Available', 550.00, 'H105'),
+('504', 'Suite', 'Booked', 550.00, 'H105');
+
+-- SQL TRIGGERS (run these in your MySQL client)
+CREATE TRIGGER trg_customer_email_validate
+BEFORE INSERT ON CUSTOMER
+FOR EACH ROW
+BEGIN
+IF NEW.EMAIL IS NULL OR NEW.EMAIL = '' THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Email must not be empty';
+END IF;
+IF NOT (NEW.EMAIL REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$') THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email format';
+END IF;
+END$$
+DELIMITER ;
+
+
+DELIMITER $$
+CREATE TRIGGER trg_customer_email_validate_upd
+BEFORE UPDATE ON CUSTOMER
+FOR EACH ROW
+BEGIN
+IF NEW.EMAIL IS NULL OR NEW.EMAIL = '' THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Email must not be empty';
+END IF;
+IF NOT (NEW.EMAIL REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$') THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email format';
+END IF;
+END$$
+DELIMITER ;
+
+
+DELIMITER $$
+CREATE TRIGGER trg_reservation_date_check
+BEFORE INSERT ON RESERVATION
+FOR EACH ROW
+BEGIN
+IF NEW.CHK_IN < CURRENT_DATE() THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Check-in date cannot be in the past';
+END IF;
+IF NEW.CHK_OUT <= NEW.CHK_IN THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Check-out must be after check-in';
+END IF;
+END$$
+DELIMITER ;
+
+
+DELIMITER $$
+CREATE TRIGGER trg_reservation_date_check_upd
+BEFORE UPDATE ON RESERVATION
+FOR EACH ROW
+BEGIN
+IF NEW.CHK_IN < CURRENT_DATE() THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Check-in date cannot be in the past';
+END IF;
+IF NEW.CHK_OUT <= NEW.CHK_IN THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Check-out must be after check-in';
+END IF;
+END$$
+DELIMITER ;
+
+
+DELIMITER $$
+CREATE TRIGGER trg_booked_via_before_insert
+BEFORE INSERT ON BOOKED_VIA
+FOR EACH ROW
+BEGIN
+DECLARE roomStatus VARCHAR(50);
+SELECT STATUS INTO roomStatus FROM ROOMS WHERE ROOM_NO = NEW.ROOM_NO;
+IF roomStatus IS NULL THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Room not found';
+END IF;
+IF roomStatus <> 'Available' THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Room is not available';
+END IF;
+END$$
+DELIMITER ;
+
+
+DELIMITER $$
+CREATE TRIGGER trg_booked_via_after_insert
+AFTER INSERT ON BOOKED_VIA
+FOR EACH ROW
+BEGIN
+UPDATE ROOMS SET STATUS = 'Booked' WHERE ROOM_NO = NEW.ROOM_NO;
+END$$
+DELIMITER ;
+
+
+DELIMITER $$
+CREATE TRIGGER trg_booked_via_after_delete
+AFTER DELETE ON BOOKED_VIA
+FOR EACH OLD
+BEGIN
+UPDATE ROOMS SET STATUS = 'Available' WHERE ROOM_NO = OLD.ROOM_NO;
+END$$
+DELIMITER ;
